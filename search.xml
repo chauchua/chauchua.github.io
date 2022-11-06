@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<search>
+  <entry>
+    <title>Mysql索引</title>
+    <url>/2022/11/06/Mysql%E7%B4%A2%E5%BC%95/</url>
+    <content><![CDATA[<h1 id="Mysql索引"><a href="#Mysql索引" class="headerlink" title="Mysql索引"></a>Mysql索引</h1><h2 id="基础知识"><a href="#基础知识" class="headerlink" title="基础知识"></a>基础知识</h2><p>索引是创建在表上的，对数据库表中一列或多列的值进行排序的一种结构，可以提高查询的速度。</p>
+<h2 id="存储类型"><a href="#存储类型" class="headerlink" title="存储类型"></a>存储类型</h2><p>索引有两种存储类型：B树（BTREE）索引和哈希（HASH）索引，InnoDB和MyISAM存储引擎支持BTREE索引，MEMORY引擎两种都支持，默认为BTREE</p>
+<p>大多数的存储引擎都支持B树索引，B树通常意味着所有的值按照顺序存储，并且每个叶子节点到根的距离相同，B树索引能顾加快数据访问的速度</p>
+<p>在引入B数之前，数据结构中比较熟悉的一种树二叉树，那么为何不用二叉树来做索引，主要有几个问题：</p>
+<p>如果索引数据很多，树的层次会很高（只有左右两个子节点），数据量大时查询还是会慢<br>二叉树每个节点只存储一个记录，一次查询在树上找的时候花费磁盘IO次数较多<br>所以它并不适合直接拿来做索引存储，算法设计人员在二叉树的基础之上进行了变种，引入了BTREE的概念，B树与二叉树有几个区别</p>
+<p>不再是二叉搜索，而是N叉搜索，树的高度会降低，查询速度变快<br>叶子节点与非叶子节点都可以存储数据，且可以存储多个数据。<br>通过中序遍历，可以访问树上所有节点</p>
+<h2 id="B树"><a href="#B树" class="headerlink" title="B树"></a>B树</h2><p><img src="/images/2c122e9812f9e0ba61d87d0c912036d2.png" alt="img"></p>
+<p>B树特征：</p>
+<ol>
+<li>根节点至少包含两个孩子</li>
+<li>树中每个结点最多含有m个孩子(m &gt;&#x3D; 2)</li>
+<li>除了根节点和叶结点外，其他每个结点至少含有ceil(m&#x2F;2)个孩子，ceil为向上取整</li>
+<li>所有叶子结点位于同一层（高度相同）</li>
+<li>假设每个非终端结点中包含有n个关键字信息，其中Ki(i &#x3D; 1…n)为关键字，且按顺序升序排列关键字的个数n必须满足：[ceil(m &#x2F; 2) - 1] &lt;&#x3D; n &lt;&#x3D; m - 1</li>
+<li>非叶子结点的指针P[1],P[2],…,P[M];其中K[1]指向关键字小于K[1]的子树，P[M - 1] 指向关键字大于K[M - 1]的子树，其它P[i]指向关键字属于(K[i-1], K[i])的子树，比如看图中关键字值为8的这个结点，P1所对应的这个子树，其值均小于8</li>
+</ol>
+<p>查询效率O(log n）</p>
+<h2 id="B-树"><a href="#B-树" class="headerlink" title="B+树"></a>B+树</h2><p>B+树是在BTree基础上的一种优化，使其更适合实现外存储索引结构，InnoDB存储引擎就是用B+Tree实现其索引结构。</p>
+<p>B+树是B树的变体，基本定义与B树相同，其改进点在于：</p>
+<p>B+树仍然是N叉树，但是层级变得更小，非叶子结点的子树指针与关键字个数相同（所以相对于B树，B+树能够存储更多的关键字）<br>非叶子结点的子树指针P[i]，指向关键字值[K[i], K[i+1])的子树，注意区间为左闭右开，左侧值可以取到。<br>范围查找方面，当定位min与max之后，中间叶子节点，就是结果集，不用中序回溯（范围查询在SQL中用得很多，这是B+树比B树最大的优势）<br>非叶子结点仅仅用来索引，数据都保存在叶子结点中（B+树所有的检索都是从根部开始，检索到叶子结点才能结束，而且非叶子结点不存储数据的话就能存储更多关键字）<br>所有叶子结点均有一个链指针指向下一个叶子节点，这样以来就不用中序遍历，可以直接通过next指针快速访问</p>
+<p><img src="/images/9b6e7ed803c8774f1740b926c9e79ed3.png" alt="img"></p>
+<p>B+ 树更适合用来做存储引擎索引</p>
+<p>1、B+树的特点使得磁盘IO的代价更小，B+树的内部节点并没有指向关键字具体指针信息，因此其内部节点相对于B树更小,所以B+树的磁盘读写的代价更低</p>
+<p>2、B+树的查询效率更加稳定（所有数据都存放在叶子节点，查询效率是O(logn))</p>
+<p>3、B+树更利于数据库的扫描，进行范围查询</p>
+<h2 id="主键索引、辅助索引、聚集索引、非聚集索引"><a href="#主键索引、辅助索引、聚集索引、非聚集索引" class="headerlink" title="主键索引、辅助索引、聚集索引、非聚集索引"></a>主键索引、辅助索引、聚集索引、非聚集索引</h2><p>mysql两种主流的存储引擎是MyISAM和INNODB</p>
+<h3 id="MyISAM引擎"><a href="#MyISAM引擎" class="headerlink" title="MyISAM引擎"></a>MyISAM引擎</h3><p>使用B+树作为索引结构，MyISAM引擎的索引文件和数据文件是分离的，<strong>因此MyISAM的索引方式称之为非聚集索引</strong>。<strong>MyISAM引擎索引结构的叶子节点的data域存放的并不是实际的数据记录，而是数据记录的地址。</strong></p>
+<p><img src="/images/0c8ce68fb1e24088470746bc635d2560.png" alt="img"></p>
+<p>辅助索引</p>
+<p>MyISAM中，主键索引和辅助索引在结构是一样的，B+树构建辅助索引，其叶子节点data域存放的是地址</p>
+<p><strong>主键索引要求key是唯一的，辅助索引的key以重复的</strong></p>
+<p><img src="/images/882a3d05581da2da110f2ae3e359e01f.png" alt="img"></p>
+<p>在MyISAM中，按照B+树的搜索算法搜索索引，主要分为两步：<strong>如果指定key存在，则取出其data域的值，然后以data域的值为地址，读取相应地址数据</strong></p>
+<p>在磁盘存储上,myisam非聚集索引将关键字和数据分开存储的，对应student表存在三个文件：student.MYD、student.MYI、student.frm</p>
+<p>student.frm(存储表的结构)</p>
+<p>student.MYD(存储表的数据)</p>
+<p>student.MYI(存放表的索引数据)</p>
+<h3 id="INNODB存储引擎相关索引"><a href="#INNODB存储引擎相关索引" class="headerlink" title="INNODB存储引擎相关索引"></a>INNODB存储引擎相关索引</h3><p>主键索引</p>
+<p>INNODB中的主键索引，叶子节点中，索引关键字和数据是在一起存放的</p>
+<p><img src="/images/3f7e42cb92d171a38cecc1ecf94cf908.png" alt="img"></p>
+<p>可以看到，索引关键字和数据一起存储在叶子节点上</p>
+<h3 id="辅助索引"><a href="#辅助索引" class="headerlink" title="辅助索引"></a>辅助索引</h3><p>在InnoDB的辅助索引，叶子节点上存放的是索引的关键字和对应的主键，如图</p>
+<p><img src="/images/247a63fa50f26fa89a51f282778d9e23.png" alt="img"></p>
+<p>辅助索引的B+树，先根据索引关键字找到对应的主键，再去主键索引树上找到对应的行记录数据</p>
+<p>从索引树上看，InnoDB的关键字和数据是存放在一块的，这种索引称之为聚集索引</p>
+<p>在磁盘存储上，InnoDB聚集索引存在两个文件:</p>
+<p>student.frm(存储表的结构)</p>
+<p>student.ibd(存放索引和数据)</p>
+<h3 id="memory存储引擎"><a href="#memory存储引擎" class="headerlink" title="memory存储引擎"></a>memory存储引擎</h3><p>memory存储引擎使用<strong>内存</strong>来存储创建表数据，每个memory表实际值对应一个磁盘文件，格式是.frm(表结构定义)，memory类型表访问非常快，因为它的数据都存放在内存中，并且默认使用<a href="https://so.csdn.net/so/search?q=hash&spm=1001.2101.3001.7020">hash</a>索引（不适合范围查询），一旦服务关闭，表中的数据就会丢失</p>
+<h2 id="MyISAM和innodb区别"><a href="#MyISAM和innodb区别" class="headerlink" title="MyISAM和innodb区别"></a>MyISAM和innodb区别</h2><figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">种类 | 锁机制 | B-树索引 | 哈希索引 |外键 |事务 | 索引缓存 | 数据缓存</span><br><span class="line"></span><br><span class="line">-----------------------------------------------------------------</span><br><span class="line"></span><br><span class="line">MYISAM| 表锁 | 支持 | 不支持 |不支持 |不支持 | 支持 | 不支持</span><br><span class="line"></span><br><span class="line">-----------------------------------------------------------------</span><br><span class="line"></span><br><span class="line">INNODB| 行锁 | 支持 | 不支持 |支持 |支持 | 支持 | 支持</span><br><span class="line"></span><br><span class="line">-----------------------------------------------------------------</span><br><span class="line"></span><br><span class="line">memory| 表锁 | 支持 | 支持 |不支持 | 不支持 | 支持 | 支持</span><br><span class="line"></span><br><span class="line">-----------------------------------------------------------------</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>锁机制：表示数据库在并发请求时，多个事务在操作时，并发操作的力度</p>
+<p>B树索引和哈希索引：主要是用于加快SQL查询效率</p>
+<p>外键：主要设置两个表连接的主要字段，关键信息</p>
+<p>事务：保证SQL组合的原子操作，要么全部成功，要么全不成功，不能部分成功</p>
+<p>索引缓存和数据缓存：在没有对数据和索引做修改之前，重复查询的数据可以不用进行磁盘IO，读取上一次内存中的查询缓存就可以</p>
+<h3 id="MyISAM和INNODB存储引擎使用锁"><a href="#MyISAM和INNODB存储引擎使用锁" class="headerlink" title="MyISAM和INNODB存储引擎使用锁"></a>MyISAM和INNODB存储引擎使用锁</h3><p>MyISAM采用的是表级锁</p>
+<p>INNODB支持行锁和表锁，默认使用行锁</p>
+<p>表级锁和行级锁对比：</p>
+<p>表级锁：MySQL中锁定力度最大的一种锁，对当前操作的整个表加锁，实现简单，资源消耗比较少，加锁块，不会出现死锁，锁的力度最大，触发锁冲突的概率最高，并发度最低，MyISAM和INNODB都支持表级锁</p>
+<p>行级锁：MySQL中锁定粒度最小的一种锁，只针对当前操作的行进行加锁，行级锁能大大减少数据库操作的冲突，其加锁力度最小，并发度高，但是加锁的开下也是最大，加锁慢，会出现死锁</p>
+<p>innodb行锁实践：</p>
+<p>INNODB的行锁是通过给索引上的索引项加锁来实现的，而不是给表的行记录加锁实现的，这意味着，只有通过索引条件检索数据时，INNODB才使用行级锁，否则使用是表锁（如果没有索引，存储引擎只能给所有行加锁，和表锁一样）</p>
+<p>注意：使用select …for update可以主动获取锁（排他锁）</p>
+<h3 id="索引优缺点"><a href="#索引优缺点" class="headerlink" title="索引优缺点"></a>索引优缺点</h3><p>优点</p>
+<p>索引的优点是可以提高检索数据的速度，这是创建索引的最主要的原因;对于有依赖关系的子表和父表之间的联合查询时，可以提高查询速度;使用分组和排序子句进行数据查询时，同样可以显著节省查询中分组和排序的时间。</p>
+<p>缺点<br>索引的缺点是创建和维护索引需要耗费时间，耗费时间的数量随着数据量的增加而增加;索引需要占用物理空间，每一个索引要占一定的物理空间;增加、删除和修改数据时，要动态的维护索引，造成数据的维护速度降低了。</p>
+<h1 id="索引分类"><a href="#索引分类" class="headerlink" title="索引分类"></a>索引分类</h1><p>MySQL索引包括普通索引、唯一性索引、单列索引、多列索引和空间索引等。</p>
+<h2 id="普通索引"><a href="#普通索引" class="headerlink" title="普通索引"></a>普通索引</h2><p>定义<br>在创建普通索引时，不附加任何限制条件。这类索引可以创建在任何数据类型中，其值是否唯一和非空由字段本身的完整性约束条件决定。建立索引以后，查询时可以通过索引进行查询。例如，在 student 表的stu_id字段上建立一个普通索引。查询记录时，就可以根据该索引进行查询。</p>
+<h2 id="唯一性索引"><a href="#唯一性索引" class="headerlink" title="唯一性索引"></a>唯一性索引</h2><p> 定义<br>使用UNIQUE参数可以设置索引为唯一性索引。在创建唯一性索引时，限制该索引的值必须是唯一的。例如，在student 表的stu_name字段中创建唯一性索引，那么stu_name字段的值就必需是唯一的。通过唯一性索引，可以更快速地确定某条记录。主键就是一种特殊唯一性索引。</p>
+<p>创建唯一性索引采用UNIQUE INDEX 索引名 (字段)创建</p>
+<h2 id="全文索引"><a href="#全文索引" class="headerlink" title="全文索引"></a>全文索引</h2><p>定义<br>使用FULLTEXT参数可以设置索引为全文索引。全文索引只能创建在CHAR、VARCHAR或TEXT类型的字段上。查询数据量较大的字符串类型的字段时，使用全文索引可以提高查询速度。例如，student 表的 information字段是TEXT类型，该字段包含了很多的文字信息。在 information字段上建立全文索引后，可以提高查询information字段的速度。MySQL数据库从3.23.23版开始支持全文索引，但只有MyISAM存储引擎支持全文检索。在默认情况下，全文索引的搜索执行方式不区分大小写。但索引的列使用二进制排序后，可以执行区分大小写的全文索引。</p>
+<p>创建全文索引采用FULLTEXT INDEX 索引名 (字段)创建</p>
+<h2 id="单列索引"><a href="#单列索引" class="headerlink" title="单列索引"></a>单列索引</h2><p>定义<br>在表中的单个字段上创建索引。单列索引只根据该字段进行索引。单列索引可以是普通索引，也可以是唯一性索引，还可以是全文索引。只要保证该索引只对应一个字段即可。</p>
+<h2 id="多列索引"><a href="#多列索引" class="headerlink" title="多列索引"></a>多列索引</h2><p>定义<br>多列索引是在表的多个字段上创建一个索引。该索引指向创建时对应的多个字段，可以通过这几个字段进行查询。但是，只有查询条件中使用了这些字段中第一个字段时，索引才会被使用。例如，在表中的id、name和 sex字段上建立一个多列索引，那么，只有查询条件使用了id字段时该索引才会被使用。</p>
+<h2 id="空间索引"><a href="#空间索引" class="headerlink" title="空间索引"></a>空间索引</h2><p>定义<br>使用SPATIAL参数可以设置索引为空间索引。空间索引只能建立在空间数据类型上，这样可以提高系统获取空间数据的效率。MySQL 中的空间数据类型包括GEOMETRY 和POINT、LINESTRING和 POLYGON等。目前只有MyISAM存储引擎支持空间检索，而且索引的字段不能为空值。对于初学者来说，这类索引很少会用到。</p>
+<h1 id="索引操作"><a href="#索引操作" class="headerlink" title="索引操作"></a>索引操作</h1><h2 id="索引创建"><a href="#索引创建" class="headerlink" title="索引创建"></a>索引创建</h2><figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">-- 普通索引采用INDEX关键字指定字段，可以采用explain查看索引是否被引用，其他索引加修饰关键字UNIQUE等即可。</span><br><span class="line">explain select * from test where id = 1;</span><br><span class="line">-- 在已存在的表上创建索引</span><br><span class="line">create [unique|fulltext|apatial] index 索引名 on 表名 (属性名 [(长度)] [ASC|DESC]);</span><br><span class="line">-- 例子:在test 的id上建立名为index_id 的普通索引</span><br><span class="line">create index index_id on test(id);</span><br><span class="line">-- 建立全文索引(全文索引必须char、varchar、text)</span><br><span class="line">create fulltext index full_id 	on test(id)</span><br><span class="line">-- 删除索引</span><br><span class="line">DROP INDEX 索引名 ON 表名</span><br></pre></td></tr></table></figure>
+
+<h1 id="索引的设计原则"><a href="#索引的设计原则" class="headerlink" title="索引的设计原则"></a>索引的设计原则</h1><p>可以看出，使用索引是有能提高查询效率，但是给表创建过多的索引，效率反而会降低，因此在设计表索引的时候，</p>
+<p>需要遵循以下的设计原则：</p>
+<p>1、给区分度高的字段创建索引 eg：学号、身份证号</p>
+<p>2、给经常需要排序，分组和多表联合操作的字段创建索引</p>
+<p>3、经常作为查询条件的字段创建索引</p>
+<p>4、索引的数据不宜过多</p>
+<p>5、对于多列索引，优先指定最左边的列集</p>
+<p>6、删除不在使用或者很少使用的索引</p>
+]]></content>
+  </entry>
+  <entry>
+    <title>Mysql语句</title>
+    <url>/2022/11/05/Msql%20%E8%AF%AD%E5%8F%A5%E7%BC%96%E5%86%99/</url>
+    <content><![CDATA[<h1 id="Msql-语句思路"><a href="#Msql-语句思路" class="headerlink" title="Msql 语句思路"></a>Msql 语句思路</h1><p><a href="https://www.nowcoder.com/exam/oj?page=1&tab=SQL%E7%AF%87&topicId=82">习题链接</a></p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">-- 类似于查找最晚入职员工的所有信息 </span><br><span class="line">-- 提示order by desc 逆序排查</span><br><span class="line">SELECT * from employees order by hire_date desc limit 1</span><br><span class="line"></span><br><span class="line">-- 查找倒数第三员工信息</span><br><span class="line">-- 提示用OFFSET   limit 1 offset 2 2后面的1条数据</span><br><span class="line">select * </span><br><span class="line">from employees </span><br><span class="line">where hire_date = </span><br><span class="line">(select distinct(hire_date) </span><br><span class="line">from employees ORDER BY </span><br><span class="line">hire_date desc  limit 1 OFFSET 2)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">-- 查找当前薪水详情以及部门编号dept_no</span><br><span class="line">-- 因为 dept_no 要求在最后一个所以用右连接查询薪水</span><br><span class="line">select sa.emp_no, sa.salary , sa.from_date,sa.to_date, de.dept_no</span><br><span class="line">from salaries sa right join dept_manager de on sa.emp_no=de.emp_no</span><br><span class="line">order by emp_no</span><br><span class="line"></span><br><span class="line">-- 查找所有已经分配部门的员工的last_name和first_name以及dept_no</span><br><span class="line">-- 连接就行了 没那么麻烦</span><br><span class="line">select last_name,first_name,dept_no from employees e  join dept_emp d using(emp_no)</span><br><span class="line"></span><br><span class="line">-- 查找所有员工的last_name和first_name以及对应部门编号dept_no也包括暂时没有分配具体部门的员工</span><br><span class="line">-- 没有分配的员工用左连接</span><br><span class="line">select last_name,first_name,dept_no from employees e left join dept_emp d using(emp_no)</span><br><span class="line">-- 查找薪水记录超过15条的员工号emp_no以及其对应的记录次数t</span><br><span class="line">-- 使用GROUP BY子句及聚合函数COUNT得出薪水变动次数大于15的员工</span><br><span class="line">select emp_no,count(emp_no) t from salaries  group by emp_no having t &gt; 15</span><br></pre></td></tr></table></figure>
+
+]]></content>
+  </entry>
+</search>
